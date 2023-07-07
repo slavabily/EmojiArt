@@ -33,10 +33,18 @@ struct EmojiArtDocumentView: View {
                     ProgressView().scaleEffect(2)
                 } else {
                     ForEach(document.emojis) { emoji in
-                        Text(emoji.text)
-                            .font(.system(size: fontSize(for: emoji)))
-                            .scaleEffect(zoomScale)
-                            .position(position(for: emoji, in: geometry))
+                        ZStack {
+                            Text(emoji.text)
+                                .font(.system(size: fontSize(for: emoji)))
+                                .gesture(tapToSelect(emoji))
+                            if selectedEmoji.contains(emoji.id) {
+                                Rectangle()
+                                    .stroke()
+                                    .frame(width: fontSize(for: emoji), height: fontSize(for: emoji))
+                            }
+                        }
+                        .scaleEffect(zoomScale)
+                        .position(position(for: emoji, in: geometry))
                     }
                 }
             }
@@ -100,6 +108,23 @@ struct EmojiArtDocumentView: View {
             x: center.x + CGFloat(location.x) * zoomScale + panOffset.width,
             y: center.y + CGFloat(location.y) * zoomScale + panOffset.height
         )
+    }
+    
+    // MARK: Selection
+    
+    @State var selectedEmoji = Set<Int>()
+    
+    private func tapToSelect(_ emoji: EmojiArtModel.Emoji) -> some Gesture {
+        TapGesture()
+            .onEnded {
+                select(emoji)
+            }
+    }
+    
+    private func select(_ emoji: EmojiArtModel.Emoji ) {
+        selectedEmoji.insert(emoji.id)
+        
+        print("Selected emoji: \(selectedEmoji)")
     }
     
     // MARK: - Zooming
