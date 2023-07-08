@@ -28,7 +28,8 @@ struct EmojiArtDocumentView: View {
                         .scaleEffect(zoomScale)
                         .position(convertFromEmojiCoordinates((0,0), in: geometry))
                 )
-                .gesture(doubleTapToZoom(in: geometry.size))
+                .gesture(doubleTapToZoom(in: geometry.size).exclusively(before: tapToUnselect()))
+                
                 if document.backgroundImageFetchStatus == .fetching {
                     ProgressView().scaleEffect(2)
                 } else {
@@ -36,8 +37,8 @@ struct EmojiArtDocumentView: View {
                         ZStack {
                             Text(emoji.text)
                                 .font(.system(size: fontSize(for: emoji)))
-                                .gesture(tapToSelect(emoji))
-                            if selectedEmoji.contains(emoji.id) {
+                                .gesture(tapToSelect_unselect(emoji))
+                            if selectedEmoji.contains(emoji) {
                                 Rectangle()
                                     .stroke()
                                     .frame(width: fontSize(for: emoji), height: fontSize(for: emoji))
@@ -110,21 +111,30 @@ struct EmojiArtDocumentView: View {
         )
     }
     
-    // MARK: Selection
+    // MARK: - Selection
     
-    @State var selectedEmoji = Set<Int>()
+    @State var selectedEmoji = Set<EmojiArtModel.Emoji>()
     
-    private func tapToSelect(_ emoji: EmojiArtModel.Emoji) -> some Gesture {
+    private func tapToSelect_unselect(_ emoji: EmojiArtModel.Emoji) -> some Gesture {
         TapGesture()
             .onEnded {
-                select(emoji)
+                select_unselect(emoji)
             }
     }
     
-    private func select(_ emoji: EmojiArtModel.Emoji ) {
-        selectedEmoji.insert(emoji.id)
-        
-        print("Selected emoji: \(selectedEmoji)")
+    private func select_unselect(_ emoji: EmojiArtModel.Emoji ) {
+        selectedEmoji.toggle(matching: emoji)
+    }
+    
+    private func tapToUnselect() -> some Gesture {
+        TapGesture()
+            .onEnded {
+                unselect()
+            }
+    }
+    
+    private func unselect() {
+        selectedEmoji.removeAll()
     }
     
     // MARK: - Zooming
