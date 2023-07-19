@@ -22,19 +22,6 @@ extension Collection where Element: Identifiable {
     }
 }
 
-// adds/removes an element to/from the Set based on
-// whether it’s already there based on Identifiable
-
-extension Set where Element: Identifiable {
-    mutating func toggle(matching element: Element) {
-        if !contains(element) {
-            insert(element)
-        } else {
-            remove(element)
-        }
-    }
-}
-
 // we could do the same thing when it comes to removing an element
 // but we have to add that to a different protocol
 // because Collection works for immutable collections of things

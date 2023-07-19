@@ -28,7 +28,7 @@ struct EmojiArtDocumentView: View {
                         .scaleEffect(zoomScale)
                         .position(convertFromEmojiCoordinates((0,0), in: geometry))
                 )
-                .gesture(doubleTapToZoom(in: geometry.size).exclusively(before: tapToUnselect()))
+                .gesture(doubleTapToZoom(in: geometry.size).exclusively(before: tapToUnselectAll()))
                 
                 if document.backgroundImageFetchStatus == .fetching {
                     ProgressView().scaleEffect(2)
@@ -45,7 +45,10 @@ struct EmojiArtDocumentView: View {
                             }
                         }
                         .scaleEffect(zoomScale)
-                        .position(position(for: emoji, in: geometry))
+                        .position(selectedEmoji.contains(emoji) ?
+                                  positionOnDrag(for: emoji, in: geometry) :
+                                  position(for: emoji, in: geometry))
+                        .gesture(selectedEmoji.contains(emoji) ? dragGesture(for: emoji) : nil)
                     }
                 }
             }
@@ -86,6 +89,10 @@ struct EmojiArtDocumentView: View {
     
     // MARK: - Positioning/Sizing Emoji
     
+    private func positionOnDrag(for emoji: EmojiArtModel.Emoji, in geometry: GeometryProxy) -> CGPoint {
+        convertFromEmojiCoordinatesOnDrag(for: emoji, atLocation: (emoji.x, emoji.y), in: geometry)
+    }
+    
     private func position(for emoji: EmojiArtModel.Emoji, in geometry: GeometryProxy) -> CGPoint {
         convertFromEmojiCoordinates((emoji.x, emoji.y), in: geometry)
     }
@@ -103,6 +110,14 @@ struct EmojiArtDocumentView: View {
         return (Int(location.x), Int(location.y))
     }
     
+    private func convertFromEmojiCoordinatesOnDrag(for emoji: EmojiArtModel.Emoji, atLocation: (x: Int, y: Int), in geometry: GeometryProxy) -> CGPoint {
+        let center = geometry.frame(in: .local).center
+            return CGPoint(
+                x: center.x + CGFloat(atLocation.x) * zoomScale + panOffset.width + dragOffset.width,
+                y: center.y + CGFloat(atLocation.y) * zoomScale + panOffset.height + dragOffset.height
+            )
+    }
+    
     private func convertFromEmojiCoordinates(_ location: (x: Int, y: Int), in geometry: GeometryProxy) -> CGPoint {
         let center = geometry.frame(in: .local).center
         return CGPoint(
@@ -113,7 +128,7 @@ struct EmojiArtDocumentView: View {
     
     // MARK: - Selection
     
-    @State var selectedEmoji = Set<EmojiArtModel.Emoji>()
+    @State private var selectedEmoji = Set<EmojiArtModel.Emoji>()
     
     private func tapToSelect_unselect(_ emoji: EmojiArtModel.Emoji) -> some Gesture {
         TapGesture()
@@ -123,10 +138,10 @@ struct EmojiArtDocumentView: View {
     }
     
     private func select_unselect(_ emoji: EmojiArtModel.Emoji ) {
-        selectedEmoji.toggle(matching: emoji)
+        selectedEmoji.toggleMembership(of: emoji)
     }
     
-    private func tapToUnselect() -> some Gesture {
+    private func tapToUnselectAll() -> some Gesture {
         TapGesture()
             .onEnded {
                 unselect()
@@ -172,6 +187,27 @@ struct EmojiArtDocumentView: View {
             steadyStatePanOffset = .zero
             steadyStateZoomScale = min(hZoom, vZoom)
         }
+    }
+    
+    // MARK: - Dragging of Emoji
+    
+    @State private var steadyStateDragOffset: CGSize = .zero
+    @GestureState private var gestureDragOffset: CGSize = .zero
+    
+    private var dragOffset: CGSize {
+        (steadyStateDragOffset + gestureDragOffset) * zoomScale
+    }
+    
+    private func dragGesture(for emoji: EmojiArtModel.Emoji) -> some Gesture {
+        DragGesture()
+            .updating($gestureDragOffset) { latestDragGestureValue, gestureDragOffset, _ in
+                gestureDragOffset = latestDragGestureValue.translation / zoomScale
+            }
+            .onEnded { finalDragGestureValue in
+                steadyStateDragOffset = steadyStateDragOffset + (finalDragGestureValue.translation / zoomScale)
+                
+                 
+            }
     }
     
     // MARK: - Panning
