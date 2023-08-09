@@ -44,7 +44,7 @@ struct EmojiArtDocumentView: View {
                                     .frame(width: fontSize(for: emoji), height: fontSize(for: emoji))
                             }
                         }
-                        .scaleEffect(zoomScale)
+                        .scaleEffect(zoomScale * emojiZoomScale(for: emoji))
                         .position(selectedEmoji.contains(emoji) || finalStateDragOffsets.contains(where: {$0.emoji == emoji}) ?
                                   positionOnDrag(for: emoji, in: geometry) :
                                   position(for: emoji, in: geometry))
@@ -160,8 +160,14 @@ struct EmojiArtDocumentView: View {
     @State private var steadyStateZoomScale: CGFloat = 1
     @GestureState private var gestureZoomScale: CGFloat = 1
     
+    @State private var steadyStateEmojiScale: CGFloat = 1
+    
     private var zoomScale: CGFloat {
-        steadyStateZoomScale * gestureZoomScale
+        steadyStateZoomScale * (selectedEmoji.isEmpty ? gestureZoomScale : 1)
+    }
+    
+    private func emojiZoomScale(for emoji: EmojiArtModel.Emoji) -> CGFloat {
+        steadyStateEmojiScale * (selectedEmoji.isEmpty ? 1 : gestureZoomScale)
     }
     
     private func zoomGesture() -> some Gesture {
@@ -170,7 +176,9 @@ struct EmojiArtDocumentView: View {
                 gestureZoomScale = latestGestureScale
             }
             .onEnded { gestureScaleAtEnd in
-                steadyStateZoomScale *= gestureScaleAtEnd
+                steadyStateZoomScale *= (selectedEmoji.isEmpty ? gestureScaleAtEnd : 1)
+                
+                steadyStateEmojiScale *= (selectedEmoji.isEmpty ? 1 : gestureScaleAtEnd)
             }
     }
     
