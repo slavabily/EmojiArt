@@ -130,7 +130,6 @@ struct EmojiArtDocumentView: View {
     // MARK: - Selection
     
     @State private var selectedEmoji = Set<EmojiArtModel.Emoji>()
-    @State private var emojiIsSelected = false
     
     private func tapToSelect_unselect(_ emoji: EmojiArtModel.Emoji) -> some Gesture {
         TapGesture()
@@ -141,7 +140,12 @@ struct EmojiArtDocumentView: View {
     
     private func select_unselect(_ emoji: EmojiArtModel.Emoji ) {
         selectedEmoji.toggleMembership(of: emoji)
-        emojiIsSelected.toggle()
+        
+        //check whether 'emoji' belongs to 'steadyStateEmojiScales'
+        if !steadyStateEmojiScales.contains(where: {$0.emoji == emoji}) {
+            // if it is not - add it to the 'steadyStateEmojiScales'
+            steadyStateEmojiScales.append((emoji, 1))
+        }
     }
     
     private func tapToUnselectAll() -> some Gesture {
@@ -160,14 +164,20 @@ struct EmojiArtDocumentView: View {
     @State private var steadyStateZoomScale: CGFloat = 1
     @GestureState private var gestureZoomScale: CGFloat = 1
     
-    @State private var steadyStateEmojiScale: CGFloat = 1
-    
     private var zoomScale: CGFloat {
         steadyStateZoomScale * (selectedEmoji.isEmpty ? gestureZoomScale : 1)
     }
     
+    typealias SteadyStateEmojiScale = (emoji: EmojiArtModel.Emoji, scale: CGFloat)
+    @State private var steadyStateEmojiScales = [SteadyStateEmojiScale]()
+    
     private func emojiZoomScale(for emoji: EmojiArtModel.Emoji) -> CGFloat {
-        steadyStateEmojiScale * (selectedEmoji.isEmpty ? 1 : gestureZoomScale)
+ 
+        if let sses = steadyStateEmojiScales.first(where: {$0.emoji == emoji}) {
+            return sses.scale * (selectedEmoji.contains(emoji) ? gestureZoomScale : 1)
+        } else {
+            return 1
+        }
     }
     
     private func zoomGesture() -> some Gesture {
@@ -178,7 +188,15 @@ struct EmojiArtDocumentView: View {
             .onEnded { gestureScaleAtEnd in
                 steadyStateZoomScale *= (selectedEmoji.isEmpty ? gestureScaleAtEnd : 1)
                 
-                steadyStateEmojiScale *= (selectedEmoji.isEmpty ? 1 : gestureScaleAtEnd)
+                selectedEmoji.forEach { emoji in
+                    if let index = steadyStateEmojiScales.firstIndex(where: {$0.emoji == emoji}),
+                       let sses = steadyStateEmojiScales.first(where: {$0.emoji == emoji}) {
+                        
+                        let sses_new = (emoji, sses.scale * gestureScaleAtEnd)
+                        steadyStateEmojiScales.remove(at: index)
+                        steadyStateEmojiScales.append(sses_new)
+                    }
+                }
             }
     }
     
