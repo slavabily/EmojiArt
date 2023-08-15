@@ -45,10 +45,8 @@ struct EmojiArtDocumentView: View {
                             }
                         }
                         .scaleEffect(zoomScale * emojiZoomScale(for: emoji))
-                        .position(selectedEmoji.contains(emoji) || finalStateDragOffsets.contains(where: {$0.emoji == emoji}) ?
-                                  positionOnDrag(for: emoji, in: geometry) :
-                                  position(for: emoji, in: geometry))
-                        .gesture(selectedEmoji.contains(emoji) ? dragGesture(for: emoji) : nil)
+                        .position(position(for: emoji, in: geometry))
+                        .gesture(dragGesture())
                     }
                 }
             }
@@ -89,12 +87,8 @@ struct EmojiArtDocumentView: View {
     
     // MARK: - Positioning/Sizing Emoji
     
-    private func positionOnDrag(for emoji: EmojiArtModel.Emoji, in geometry: GeometryProxy) -> CGPoint {
-        convertFromEmojiCoordinatesOnDrag(for: emoji, atLocation: (emoji.x, emoji.y), in: geometry)
-    }
-    
     private func position(for emoji: EmojiArtModel.Emoji, in geometry: GeometryProxy) -> CGPoint {
-        convertFromEmojiCoordinates((emoji.x, emoji.y), in: geometry)
+        convertFromEmojiCoordinatesOnDrag(for: emoji, atLocation: (emoji.x, emoji.y), in: geometry)
     }
     
     private func fontSize(for emoji: EmojiArtModel.Emoji) -> CGFloat {
@@ -145,6 +139,11 @@ struct EmojiArtDocumentView: View {
         if !steadyStateEmojiScales.contains(where: {$0.emoji == emoji}) {
             // if it is not - add it to the 'steadyStateEmojiScales'
             steadyStateEmojiScales.append((emoji, 1))
+        }
+        // check whether 'emoji' belongs to 'steadyStateDragOffsets'
+        if !steadyStateDragOffsets.contains(where: {$0.emoji == emoji}) {
+            // if it is not - add it to the 'steadyStateDragOffsets'
+            steadyStateDragOffsets.append((emoji, .zero))
         }
     }
     
@@ -220,47 +219,34 @@ struct EmojiArtDocumentView: View {
     
     // MARK: - Dragging of Emoji
     
-    typealias FinalStateDragOffset = (emoji: EmojiArtModel.Emoji?, offset: CGSize)
+    typealias FinalStateDragOffset = (emoji: EmojiArtModel.Emoji, offset: CGSize)
+    @State private var steadyStateDragOffsets = [FinalStateDragOffset]()
     
-    @State private var finalStateDragOffsets = [FinalStateDragOffset]()
-    
-    @State private var steadyStateDragOffset: CGSize = .zero
     @GestureState private var gestureDragOffset: CGSize = .zero
     
     private func dragOffset(for emoji: EmojiArtModel.Emoji) -> CGSize {
-        
-    // TODO: connect 'dragOffset' to emoji
-        
-        if selectedEmoji.contains(emoji) && finalStateDragOffsets.contains(where: {$0.emoji == emoji}) {
-            let fsdo = finalStateDragOffsets.first(where: {$0.emoji == emoji})
-            
-            return  (fsdo!.offset + gestureDragOffset) * zoomScale
-            
-        } else if selectedEmoji.contains(emoji) && !finalStateDragOffsets.contains(where: {$0.emoji == emoji}) {
-            
-            return  (.zero + gestureDragOffset) * zoomScale
-            
-        } else if !selectedEmoji.contains(emoji) && finalStateDragOffsets.contains(where: {$0.emoji == emoji}) {
-            let fsdo = finalStateDragOffsets.first(where: {$0.emoji == emoji})
-            
-            return  fsdo!.offset * zoomScale
-            
+        if let ssdo = steadyStateDragOffsets.first(where: {$0.emoji == emoji}) {
+            return (ssdo.offset + (selectedEmoji.contains(emoji) ? gestureDragOffset : .zero)) * zoomScale
         } else {
-            
-            return  .zero
+            return .zero
         }
     }
     
-    private func dragGesture(for emoji: EmojiArtModel.Emoji) -> some Gesture {
+    private func dragGesture() -> some Gesture {
         DragGesture()
             .updating($gestureDragOffset) { latestDragGestureValue, gestureDragOffset, _ in
                 gestureDragOffset = latestDragGestureValue.translation / zoomScale
             }
             .onEnded { finalDragGestureValue in
-                steadyStateDragOffset = steadyStateDragOffset + (finalDragGestureValue.translation / zoomScale)
-                
-                finalStateDragOffsets.removeAll(where: {$0.emoji == emoji})
-                finalStateDragOffsets.append((emoji, steadyStateDragOffset))
+                selectedEmoji.forEach { emoji in
+                    if let index = steadyStateDragOffsets.firstIndex(where: {$0.emoji == emoji}),
+                       let ssdo = steadyStateDragOffsets.first(where: {$0.emoji == emoji}) {
+                        
+                        let ssdo_new = (emoji, ssdo.offset + finalDragGestureValue.translation / zoomScale)
+                        steadyStateDragOffsets.remove(at: index)
+                        steadyStateDragOffsets.append(ssdo_new)
+                    }
+                }
             }
     }
     
@@ -275,11 +261,11 @@ struct EmojiArtDocumentView: View {
     
     private func panGesture() -> some Gesture {
         DragGesture()
-            .updating($gesturePanOffset) { latestDragGestureValue, gesturePanOffset, _ in
-                gesturePanOffset = latestDragGestureValue.translation / zoomScale
+            .updating($gesturePanOffset) { latestPanGestureValue, gesturePanOffset, _ in
+                gesturePanOffset = latestPanGestureValue.translation / zoomScale
             }
-            .onEnded { finalDragGestureValue in
-                steadyStatePanOffset = steadyStatePanOffset + (finalDragGestureValue.translation / zoomScale)
+            .onEnded { finalPanGestureValue in
+                steadyStatePanOffset = steadyStatePanOffset + (finalPanGestureValue.translation / zoomScale)
             }
     }
 
