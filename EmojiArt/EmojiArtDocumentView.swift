@@ -37,7 +37,7 @@ struct EmojiArtDocumentView: View {
                         ZStack {
                             Text(emoji.text)
                                 .font(.system(size: fontSize(for: emoji)))
-                                .gesture(tapToSelect_unselect(emoji))
+                                .gesture(doubleTapToDelete(emoji).exclusively(before: tapToSelect_unselect(emoji)))
                             if selectedEmoji.contains(emoji) {
                                 Rectangle()
                                     .stroke()
@@ -119,6 +119,17 @@ struct EmojiArtDocumentView: View {
             x: center.x + CGFloat(location.x) * zoomScale + panOffset.width,
             y: center.y + CGFloat(location.y) * zoomScale + panOffset.height
         )
+    }
+    
+    // MARK: - Deletion
+    
+    private func doubleTapToDelete(_ emoji: EmojiArtModel.Emoji) -> some Gesture {
+        TapGesture(count: 2)
+            .onEnded {
+                // delete only selected emoji
+                guard selectedEmoji.contains(emoji) else {return}
+                document.delete(emoji)
+            }
     }
     
     // MARK: - Selection
